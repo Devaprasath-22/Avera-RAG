@@ -1,0 +1,59 @@
+# Avera RAG — Windows Configuration
+# CPU-only mode for local validation before Jetson deployment.
+# All paths use Windows-style (backslashes work, forward slashes also fine).
+
+ingestion:
+  chunk_size: 600
+  chunk_overlap: 80
+  batch_size: 64          # larger batch — GPU embedding is fast
+
+retrieval:
+  top_k: 20
+  rerank_top_n: 5
+  collection_name: "avera_medical_windows"
+  persist_dir: "./chroma_db_windows"
+
+models:
+  base_dir: "d:/Deva/Avera!/avera_models"
+
+  embedder: "BAAI/bge-small-en-v1.5"   # ~130MB, downloaded automatically
+
+  reranker: "cross-encoder/ms-marco-MiniLM-L-6-v2"  # ~85MB, auto-download
+
+  llm:
+    # Download this GGUF manually (see setup_windows.ps1)
+    path: "d:/Deva/Avera!/avera_models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    n_ctx: 8192
+    n_gpu_layers: -1      # all layers to RTX 3050 GPU (~1.1GB VRAM used)
+    temperature: 0.1
+    max_tokens: 180
+    stop: ["</answer>", "Human:", "User:"]
+
+  vlm:
+    hf_id: "Qwen/Qwen2-VL-2B-Instruct"
+    load_in_4bit: false   # RTX 3050 has 6GB — use FP16 (BnB not needed)
+    max_new_tokens: 256
+    enabled: true         # enabled — RTX 3050 has enough VRAM
+
+  asr:
+    model_size: "small"   # Multilingual Whisper (English, Tamil, Hindi, Telugu, Kannada)
+    device: "cuda"        # GPU ASR on RTX 3050
+    compute_type: "float16"
+    language: "en"
+    beam_size: 5
+
+  tts:
+    provider: "edge-tts"  # Neural Indian voices for ta, hi, te, kn, en
+    language: "en"
+    gender: "female"
+    sample_rate: 24000
+    model_cache_dir: "d:/Deva/Avera!/avera_models/indic_tts"
+
+api:
+  host: "127.0.0.1"      # localhost only on Windows dev
+  port: 8000
+  workers: 1
+
+logging:
+  level: "INFO"
+  latency_window: 50

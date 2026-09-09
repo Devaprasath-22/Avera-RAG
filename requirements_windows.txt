@@ -1,0 +1,51 @@
+# ─── Windows Requirements — CPU-only, no CUDA/BnB ────────────────────────────
+# For local development and validation on Windows before deploying to Jetson.
+# Install with: pip install -r requirements_windows.txt
+
+# ─── Core ─────────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+pyyaml>=6.0.1
+rich>=13.7.0
+psutil>=5.9.8
+
+# ─── Document Loading ─────────────────────────────────────────────────────────
+PyMuPDF>=1.24.0          # PDF: fitz
+python-docx>=1.1.0       # DOCX
+lxml>=5.1.0              # XML parsing
+
+# ─── Embeddings & Retrieval ───────────────────────────────────────────────────
+sentence-transformers>=3.0.0
+chromadb>=0.5.3
+
+# ─── LLM (llama.cpp — CPU build) ─────────────────────────────────────────────
+# Pre-built CPU wheel — installs without any compiler on Windows.
+# Speed: ~3-5 tok/s on CPU (fine for validation; Jetson GPU gets ~25 tok/s)
+llama-cpp-python>=0.2.90
+
+# ─── VLM — SKIPPED on Windows CPU ────────────────────────────────────────────
+# bitsandbytes INT4 is not supported on Windows CPU.
+# VLM is disabled in config_windows.yaml.
+# Install transformers/pillow only if you have a CUDA GPU on Windows:
+transformers>=4.45.0
+accelerate>=0.33.0
+Pillow>=10.3.0
+# bitsandbytes is NOT included — VLM will run in FP32 if GPU available,
+# or be skipped entirely on CPU. No errors will occur if unused.
+
+# ─── ASR ──────────────────────────────────────────────────────────────────────
+faster-whisper>=1.0.3
+
+# ─── TTS (AI4Bharat Indic TTS — offline VITS) ────────────────────────────────
+TTS>=0.22.0              # Coqui TTS engine
+huggingface_hub>=0.23.0  # one-time HuggingFace model download
+sounddevice>=0.4.7
+soundfile>=0.12.1
+
+# ─── API ──────────────────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.1
+python-multipart>=0.0.9
+aiofiles>=23.2.1
+
+# ─── Eval ─────────────────────────────────────────────────────────────────────
+numpy>=1.26.0

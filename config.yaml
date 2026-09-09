@@ -1,0 +1,63 @@
+# Avera RAG — Central Configuration
+# All tunable parameters. Paths use ~ for home dir (expanded at runtime).
+
+ingestion:
+  chunk_size: 600         # target tokens per chunk (approx 4 chars/token)
+  chunk_overlap: 80       # overlap tokens between adjacent chunks (~13%)
+  batch_size: 32          # embedding batch size
+
+retrieval:
+  top_k: 20               # initial retrieval count before reranking
+  rerank_top_n: 5         # final chunks passed to LLM after reranking
+  collection_name: "avera_medical"
+  persist_dir: "./chroma_db"
+
+models:
+  base_dir: "~/avera_models"
+
+  embedder: "BAAI/bge-small-en-v1.5"   # downloaded from HuggingFace at first run
+
+  reranker: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+  llm:
+    # GGUF file — download separately via setup_jetson.sh
+    path: "~/avera_models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    n_ctx: 8192            # context window (tokens)
+    n_gpu_layers: -1       # -1 = all layers to GPU (Jetson unified memory)
+    temperature: 0.1       # low temp for medical grounding
+    max_tokens: 512
+    stop: ["</answer>", "Human:", "User:"]
+
+  vlm:
+    hf_id: "Qwen/Qwen2-VL-2B-Instruct"
+    load_in_4bit: true
+    max_new_tokens: 256
+
+  asr:
+    model_size: "small.en"    # use "small" for multilingual
+    device: "cuda"
+    compute_type: "int8"
+    language: "en"
+    beam_size: 5
+
+  tts:
+    # AI4Bharat Indic TTS — fully offline, VITS-based
+    # Models downloaded from HuggingFace on first run, then cached locally.
+    # No internet needed after the initial download.
+    provider: "ai4bharat"
+    language: "hi"                       # BCP-47: hi, ta, te, kn, ml, bn, mr, gu, pa, en…
+    gender: "female"                     # female | male
+    sample_rate: 22050
+    model_cache_dir: "~/avera_models/indic_tts"  # cached model weights
+    # Language groups (auto-selected):
+    #   Indo-Aryan : hi, bn, mr, gu, pa, or, as, ur, en
+    #   Dravidian  : ta, te, kn, ml
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1              # single worker — models are NOT thread-safe
+
+logging:
+  level: "INFO"
+  latency_window: 100     # rolling window for /metrics endpoint

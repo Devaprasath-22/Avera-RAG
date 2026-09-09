@@ -1,0 +1,1 @@
+"""Avera RAG — eval package."""

@@ -1,0 +1,54 @@
+﻿# Python virtual environments
+venv/
+venv_windows/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Vector store databases & local indices
+chroma_db/
+chroma_db_windows/
+*.sqlite3
+*.db
+
+# Model checkpoints & cache (downloaded dynamically at runtime)
+avera_models/
+models_cache/
+*.bin
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.gguf
+*.msgpack
+
+# Large raw datasets / temporary media
+*.zip
+*.tar.gz
+*.wav
+*.mp3
+*.ogg
+*.flac
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE, OS & Editor artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.log

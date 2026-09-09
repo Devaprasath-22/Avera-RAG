@@ -20,8 +20,8 @@ from typing import Any, Dict, Optional
 logger = logging.getLogger(__name__)
 
 # VAD parameters for mic recording
-_SILENCE_THRESHOLD_DB = -40    # dBFS below which audio is considered silence
-_SILENCE_DURATION_S = 2.0      # seconds of silence to trigger end of utterance
+_SILENCE_THRESHOLD_DB = -40    # fallback dBFS when calibration not available
+_SILENCE_DURATION_S = 1.5      # seconds of silence to trigger end of utterance
 _MAX_RECORDING_S = 30          # hard cap on single recording
 _SAMPLE_RATE = 16_000          # Hz (Whisper native)
 
@@ -220,6 +220,10 @@ class ASRBackend:
         silence_chunks_needed = int(silence_duration_s / 0.1)
         initial_wait_chunks = int(5.0 / 0.1)  # wait up to 5s for user to begin
         max_chunks = int(max_seconds / 0.1)
+        calib_chunks = 3  # first 300ms used to measure ambient noise floor
+        ambient_dbs = []
+        ambient_floor = _SILENCE_THRESHOLD_DB
+        silence_threshold_db = _SILENCE_THRESHOLD_DB
 
         with sd.InputStream(samplerate=_SAMPLE_RATE, channels=1, dtype="float32") as stream:
             for _ in range(max_chunks):
@@ -228,8 +232,22 @@ class ASRBackend:
 
                 # VAD: check RMS energy
                 rms = np.sqrt(np.mean(chunk ** 2))
-                db = 20 * np.log10(rms + 1e-10)
-                if db < _SILENCE_THRESHOLD_DB:
+                db = float(20 * np.log10(rms + 1e-10))
+
+                # Calibrate ambient noise floor during initial chunks
+                if len(ambient_dbs) < calib_chunks:
+                    ambient_dbs.append(db)
+                    if len(ambient_dbs) == calib_chunks:
+                        ambient_floor = float(np.median(ambient_dbs))
+                        silence_threshold_db = max(-45.0, min(-16.0, ambient_floor + 4.0))
+                    continue
+
+                # Continuously track lowest ambient noise before speech starts
+                if not has_spoken and db < ambient_floor:
+                    ambient_floor = db
+                    silence_threshold_db = max(-45.0, min(-16.0, ambient_floor + 4.0))
+
+                if db < silence_threshold_db:
                     if has_spoken:
                         silent_chunks += 1
                         if silent_chunks >= silence_chunks_needed:

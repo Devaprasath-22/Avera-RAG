@@ -298,45 +298,69 @@ class RAGPipeline:
             }
             target_code = target_map.get(language, language)
             try:
-                from deep_translator import MyMemoryTranslator
+                from deep_translator import MyMemoryTranslator, GoogleTranslator
                 from concurrent.futures import ThreadPoolExecutor
+                import re as _re
+
                 tr = MyMemoryTranslator(source="en-US", target=target_code)
 
-                if len(answer) <= 450:
-                    answer = tr.translate(answer)
-                else:
-                    chunks_to_trans = []
-                    current_chunk = []
-                    current_len = 0
-                    for line in answer.splitlines():
-                        line_len = len(line) + 1
-                        if current_len + line_len <= 450:
-                            current_chunk.append(line)
-                            current_len += line_len
+                def _safe_chunks(text: str, max_chars: int = 380) -> list[str]:
+                    res = []
+                    sentences = _re.split(r"(?<=[.!?\n])\s+", text)
+                    current = ""
+                    for s in sentences:
+                        s = s.strip()
+                        if not s:
+                            continue
+                        if len(s) > max_chars:
+                            words = s.split()
+                            sub = ""
+                            for w in words:
+                                if len(sub) + len(w) + 1 <= max_chars:
+                                    sub = f"{sub} {w}".strip()
+                                else:
+                                    if sub:
+                                        res.append(sub)
+                                    sub = w
+                            if sub:
+                                res.append(sub)
                         else:
-                            if current_chunk:
-                                chunks_to_trans.append("\n".join(current_chunk))
-                            current_chunk = [line]
-                            current_len = line_len
-                    if current_chunk:
-                        chunks_to_trans.append("\n".join(current_chunk))
+                            if len(current) + len(s) + 1 <= max_chars:
+                                current = f"{current} {s}".strip()
+                            else:
+                                if current:
+                                    res.append(current)
+                                current = s
+                    if current:
+                        res.append(current)
+                    return res or [text[:max_chars]]
 
+                def _translate_single(chunk: str) -> str:
+                    try:
+                        return tr.translate(chunk)
+                    except Exception:
+                        # Fallback to GoogleTranslator if MyMemory errors
+                        simple_lang = target_code.split("-")[0]
+                        return GoogleTranslator(source="en", target=simple_lang).translate(chunk)
+
+                chunks_to_trans = _safe_chunks(answer, max_chars=380)
+                if len(chunks_to_trans) == 1:
+                    answer = _translate_single(chunks_to_trans[0])
+                else:
                     with ThreadPoolExecutor(max_workers=min(4, max(1, len(chunks_to_trans)))) as executor:
-                        translated_pieces = list(executor.map(tr.translate, chunks_to_trans))
+                        translated_pieces = list(executor.map(_translate_single, chunks_to_trans))
 
-                    # Deduplicate consecutive identical chunks (MyMemory artifact
-                    # when source contains non-ASCII chars or hits quota limit)
                     deduped = []
                     for piece in translated_pieces:
-                        cleaned = piece.strip()
-                        # Strip MyMemory quota warning lines
+                        cleaned = (piece or "").strip()
                         cleaned = "\n".join(
                             l for l in cleaned.splitlines()
                             if "MYMEMORY WARNING" not in l.upper()
                         ).strip()
-                        if not deduped or cleaned != deduped[-1]:
+                        if cleaned and (not deduped or cleaned != deduped[-1]):
                             deduped.append(cleaned)
-                    answer = "\n".join(deduped)
+                    if deduped:
+                        answer = "\n".join(deduped)
 
                 timings["translate_ms"] = round((time.perf_counter() - t_trans) * 1000)
                 logger.info(f"Translated clinical response to {language} in {timings['translate_ms']}ms")
@@ -461,14 +485,15 @@ class RAGPipeline:
         if _has(["காது வலி", "காது", "சீழ்", "कान दर्द", "पीप", "చెవి నొప్పి", "చీము", "ಕಿವಿ ನೋವು", "ಕೀವು"]):
             matches.append("ear pain acute ear infection")
 
-        if matches:
-            return " ".join(matches)
         # Menstrual problems / Period pain
         if _has(['மாதவிடாய்', 'மாதவிலக்கு', 'தீட்டு', 'पीरियड्स', 'मासिक धर्म', 'పీరియడ్స్', 'ఋతుసమస్య', 'ಋತುಚಕ್ರ']):
             matches.append('menstrual disorder period pain dysmenorrhea')
         # Urinary problems
         if _has(['சிறுநீர்', 'மூத்திரம்', 'பச்சைநீர்', 'पेशाब', 'मूत्र', 'మూత్ర', 'ಮೂತ್ರ']):
             matches.append('urinary tract infection dysuria')
+        # Stress / Anxiety / Depression / Mental health
+        if _has(['மனஅழுத்தம்', 'மன அழுத்தம்', 'பதற்றம்', 'கவலை', 'தூக்கமின்மை', 'டிப்ரஷன்', 'तनाव', 'चिंता', 'घबराहट', 'डिप्रेशन', 'ఆందోళన', 'ఒత్తిడి', 'ಆತಂಕ', 'ಒತ್ತಡ']):
+            matches.append('stress anxiety depression mental health management')
 
         if matches:
             return ' '.join(matches)

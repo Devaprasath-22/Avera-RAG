@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # VAD parameters for mic recording
 _SILENCE_THRESHOLD_DB = -40    # dBFS below which audio is considered silence
-_SILENCE_DURATION_S = 1.5      # seconds of silence to trigger end of utterance
+_SILENCE_DURATION_S = 2.0      # seconds of silence to trigger end of utterance
 _MAX_RECORDING_S = 30          # hard cap on single recording
 _SAMPLE_RATE = 16_000          # Hz (Whisper native)
 
@@ -181,8 +181,11 @@ class ASRBackend:
         logger.info("Recording from microphone… (speak now)")
         frames = []
         silent_chunks = 0
+        speech_chunks = 0
+        has_spoken = False
         chunk_size = int(_SAMPLE_RATE * 0.1)  # 100ms chunks
         silence_chunks_needed = int(silence_duration_s / 0.1)
+        initial_wait_chunks = int(5.0 / 0.1)  # wait up to 5s for user to begin
         max_chunks = int(max_seconds / 0.1)
 
         with sd.InputStream(samplerate=_SAMPLE_RATE, channels=1, dtype="float32") as stream:
@@ -194,12 +197,20 @@ class ASRBackend:
                 rms = np.sqrt(np.mean(chunk ** 2))
                 db = 20 * np.log10(rms + 1e-10)
                 if db < _SILENCE_THRESHOLD_DB:
-                    silent_chunks += 1
-                    if silent_chunks >= silence_chunks_needed and len(frames) > silence_chunks_needed:
-                        logger.info("Silence detected — stopping recording.")
-                        break
+                    if has_spoken:
+                        silent_chunks += 1
+                        if silent_chunks >= silence_chunks_needed:
+                            logger.info("Silence detected — stopping recording.")
+                            break
+                    else:
+                        if len(frames) >= initial_wait_chunks:
+                            logger.info("No speech initiated — stopping recording.")
+                            break
                 else:
                     silent_chunks = 0
+                    speech_chunks += 1
+                    if speech_chunks >= 2:  # at least 200ms above threshold confirms speech
+                        has_spoken = True
 
         audio = np.concatenate(frames, axis=0)
         logger.info(f"Recorded {len(audio) / _SAMPLE_RATE:.1f}s of audio.")

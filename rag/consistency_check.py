@@ -95,18 +95,31 @@ def check_grounding(raw_query: str, answer: str, context: str) -> bool:
     if answer.strip().upper() == "INSUFFICIENT_MATCH":
         return False
 
-    # Demographic guard: check raw_query ONLY.
-    # Do NOT include context here — IMCI chunks always contain "child",
-    # and we must not let that bleed through to adult patient answers.
+    # Demographic guard:
+    # We guard against pediatric IMCI content bleeding into adult queries.
+    # If context is from IMCI (Childhood Illness guidelines) and the patient
+    # didn't ask about a child, block it.
+    # However, if the context is from general clinical reference material (e.g. MedlinePlus)
+    # where terms like 'children' or 'adult' legitimately occur in general medical descriptions,
+    # do NOT falsely reject the answer if it is grounded in context.
     query_lower = raw_query.lower()
+    context_lower = context.lower() if context else ""
+    is_imci_context = any(
+        k in context_lower for k in ("imci", "childhood illness", "chart booklet", "young infant")
+    )
 
     injections: List[str] = []
     for term, pattern in zip(_DEMOGRAPHIC_GUARD_TERMS, _GUARD_PATTERNS):
         # Term appears in the answer…
         if pattern.search(answer):
-            # …but NOT in the patient's own words → demographic injection detected
+            # …but NOT in the patient's own words
             if term.lower() not in query_lower:
-                injections.append(term)
+                if is_imci_context:
+                    # Pure IMCI context: pediatric injection is a safety violation
+                    injections.append(term)
+                elif term.lower() not in context_lower:
+                    # General context: only flag if neither in query NOR in retrieved context
+                    injections.append(term)
 
     if injections:
         logger.warning(

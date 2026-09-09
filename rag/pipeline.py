@@ -263,6 +263,11 @@ class RAGPipeline:
                 has_sentinel = False  # partial answer survived — re-check grounding
                 answer = answer_clean
 
+        # Strip trailing prompt echoes if any
+        import re as _re
+        answer_clean = _re.sub(r"(?i)\n*If (?:no|the) relevant clinical information.*$", "", answer_clean).strip()
+        answer = answer_clean
+
         if has_sentinel or not check_grounding(
             raw_query=raw_query_en, answer=answer, context=context_text
         ):

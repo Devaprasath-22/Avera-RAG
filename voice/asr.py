@@ -220,13 +220,26 @@ class ASRBackend:
         silence_chunks_needed = int(silence_duration_s / 0.1)
         initial_wait_chunks = int(5.0 / 0.1)  # wait up to 5s for user to begin
         max_chunks = int(max_seconds / 0.1)
-        calib_chunks = 3  # first 300ms used to measure ambient noise floor
-        ambient_dbs = []
-        ambient_floor = _SILENCE_THRESHOLD_DB
-        silence_threshold_db = _SILENCE_THRESHOLD_DB
 
         with sd.InputStream(samplerate=_SAMPLE_RATE, channels=1, dtype="float32") as stream:
-            for _ in range(max_chunks):
+            # Discard initial audio stream startup artifact (first 200ms)
+            try:
+                _ = stream.read(chunk_size * 2)
+            except Exception:
+                pass
+
+            # Calibrate ambient noise floor across first 4 chunks (400ms)
+            calib_dbs = []
+            for _ in range(4):
+                chunk, _ = stream.read(chunk_size)
+                frames.append(chunk.copy())
+                rms = np.sqrt(np.mean(chunk ** 2))
+                calib_dbs.append(float(20 * np.log10(rms + 1e-10)))
+
+            ambient_peak = max(calib_dbs)
+            silence_threshold_db = min(-14.0, max(-38.0, ambient_peak + 3.5))
+
+            for _ in range(max_chunks - 4):
                 chunk, _ = stream.read(chunk_size)
                 frames.append(chunk.copy())
 
@@ -234,34 +247,20 @@ class ASRBackend:
                 rms = np.sqrt(np.mean(chunk ** 2))
                 db = float(20 * np.log10(rms + 1e-10))
 
-                # Calibrate ambient noise floor during initial chunks
-                if len(ambient_dbs) < calib_chunks:
-                    ambient_dbs.append(db)
-                    if len(ambient_dbs) == calib_chunks:
-                        ambient_floor = float(np.median(ambient_dbs))
-                        silence_threshold_db = max(-45.0, min(-16.0, ambient_floor + 4.0))
-                    continue
-
-                # Continuously track lowest ambient noise before speech starts
-                if not has_spoken and db < ambient_floor:
-                    ambient_floor = db
-                    silence_threshold_db = max(-45.0, min(-16.0, ambient_floor + 4.0))
-
-                if db < silence_threshold_db:
-                    if has_spoken:
-                        silent_chunks += 1
-                        if silent_chunks >= silence_chunks_needed:
-                            logger.info("Silence detected — stopping recording.")
-                            break
-                    else:
-                        if len(frames) >= initial_wait_chunks:
-                            logger.info("No speech initiated — stopping recording.")
-                            break
-                else:
-                    silent_chunks = 0
+                if db >= silence_threshold_db:
                     speech_chunks += 1
                     if speech_chunks >= 2:  # at least 200ms above threshold confirms speech
                         has_spoken = True
+                    silent_chunks = max(0, silent_chunks - 2)
+                else:
+                    speech_chunks = 0
+                    silent_chunks += 1
+                    if has_spoken and silent_chunks >= silence_chunks_needed:
+                        logger.info("Silence detected — stopping recording.")
+                        break
+                    elif not has_spoken and silent_chunks >= initial_wait_chunks:
+                        logger.info("No speech initiated — stopping recording.")
+                        break
 
         audio = np.concatenate(frames, axis=0)
         logger.info(f"Recorded {len(audio) / _SAMPLE_RATE:.1f}s of audio.")

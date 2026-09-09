@@ -153,6 +153,7 @@ class TTSBackend:
         )
         self.sample_rate: int = tts_cfg.get("sample_rate", 22050)
         self._stop_requested: bool = False
+        self._edge_tts_available: bool = True
 
         # Loaded models keyed by group name (lazy)
         self._models: Dict[str, Any] = {}
@@ -279,7 +280,7 @@ class TTSBackend:
         detected = detect_script(cleaned_text)
         effective_lang = detected or lang or "en"
 
-        if self.provider == "edge-tts":
+        if self.provider == "edge-tts" and self._edge_tts_available:
             try:
                 import asyncio
                 import edge_tts
@@ -294,9 +295,10 @@ class TTSBackend:
                 if output_path.exists() and output_path.stat().st_size > 0:
                     return output_path
             except Exception as e:
-                logger.warning(f"edge-tts failed ({e}), falling back to pyttsx3")
+                self._edge_tts_available = False
+                logger.info(f"edge-tts offline/unreachable ({e}) — switched session to local pyttsx3")
 
-            # Fallback to pyttsx3 when edge-tts fails
+            # Fallback to pyttsx3 when edge-tts fails or is unavailable
             try:
                 import pyttsx3
                 engine = pyttsx3.init()

@@ -185,21 +185,13 @@ class LLMBackend:
             {
                 "role": "system",
                 "content": (
-                    "You are a clinical query translator. Convert Indian language medical symptoms "
-                    "and questions into clean English search queries for medical document retrieval.\n\n"
-                    "IMPORTANT: Translate ONLY what the patient said. Do NOT add age groups "
-                    "(child, infant, adult) unless the patient explicitly mentioned them.\n\n"
-                    "Examples:\n"
-                    "User: எனக்கு தலைவலி உள்ளது\nOutput: headache causes and treatment\n\n"
-                    "User: காய்ச்சல் உள்ளது\nOutput: fever symptoms and assessment\n\n"
-                    "User: எனக்கு வயிற்றுப்போக்கு\nOutput: diarrhea treatment and hydration\n\n"
-                    "User: மூச்சு வாங்குகிறது\nOutput: difficulty breathing respiratory assessment\n\n"
-                    "User: मुझे तेज बुखार है\nOutput: high fever causes and treatment\n\n"
-                    "User: కడుపు నొప్పిగా ఉంది\nOutput: abdominal pain causes and treatment\n\n"
-                    "User: నాకు దగ్గు వస్తోంది\nOutput: cough respiratory infection assessment"
+                    "You are a medical query translator. Translate the patient's symptoms or questions "
+                    "from Indian languages (Tamil, Hindi, Telugu, Kannada) into clean English clinical search keywords.\n"
+                    "Output ONLY the English medical keywords for the user's specific symptom.\n"
+                    "Do not include explanations, prefixes, or commentary."
                 ),
             },
-            {"role": "user", "content": question},
+            {"role": "user", "content": f"Translate this symptom to English medical keywords: {question}"},
         ]
         try:
             output = self._llm.create_chat_completion(

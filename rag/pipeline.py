@@ -412,23 +412,58 @@ class RAGPipeline:
     def _match_fast_clinical_query(text: str, language: str) -> Optional[str]:
         """
         Fast, zero-latency clinical term resolution for common outpatient symptoms.
-        Matches symptoms across Tamil, Hindi, Telugu, and Kannada.
+        Matches symptoms across Tamil, Hindi, Telugu, and Kannada with whitespace normalization.
         """
         t = text.lower().strip()
+        t_norm = "".join(t.split()).replace("…", "").replace(".", "")
         matches = []
 
+        def _has(kw_list: list[str]) -> bool:
+            return any(k in t or "".join(k.split()) in t_norm for k in kw_list)
+
         # Fever / Temperature
-        if any(k in t for k in ["காய்ச்சல்", "கைச்சல்", "ஜுரம்", "சூடு", "बुखार", "ताप", "జ్వరం", "ಜ್ವರ"]):
+        if _has(["காய்ச்சல்", "கைச்சல்", "ஜுரம்", "சூடு", "बुखार", "ताप", "జ్వరం", "ಜ್ವರ"]):
             matches.append("fever body temperature")
         # Cough / Cold / Throat
-        if any(k in t for k in ["இருமல்", "சளி", "தொண்டை", "மூக்கடைப்பு", "खांसी", "जुकाम", "सर्दी", "गला", "దగ్గు", "జలుబు", "గొంతు", "ಕೆಮ್ಮು", "ನೆಗಡಿ", "ಗಂಟಲು"]):
+        if _has(["இருமல்", "சளி", "தொண்டை", "மூக்கடைப்பு", "खांसी", "जुकाम", "सर्दी", "गला", "దగ్గు", "జలుబు", "గొంతు", "ಕೆಮ್ಮು", "ನೆಗಡಿ", "ಗಂಟಲು"]):
             matches.append("cough cold respiratory infection")
         # Breathing / Pneumonia
-        if any(k in t for k in ["மூச்சு", "இளைப்பு", "ஆஸ்துமா", "திணறல்", "सांस", "दमा", "శ్వాస", "ఆయాసం", "ಉಸಿರಾಟ"]):
+        if _has(["மூச்சு", "இளைப்பு", "ஆஸ்துமா", "திணறல்", "सांस", "दमा", "శ్వాస", "ఆయాసం", "ಉಸಿರಾಟ"]):
             matches.append("difficulty breathing fast breathing pneumonia")
-        # Diarrhea / Dehydration
-        if any(k in t for k in ["வயிற்றுப்போக்கு", "பேதி", "சீதபேதி", "दस्त", "पेचिश", "విరేచనాలు", "భేది", "ಭೇದಿ", "ಅತಿಸಾರ"]):
+        # Diarrhea / Dehydration / Loose motion
+        if _has(["வயிற்றுப்போக்கு", "வயிற்றுப் போக்கு", "பேதி", "சீதபேதி", "லூஸ் மோஷன்", "दस्त", "पेचिश", "विरेचనాలు", "భేది", "ಭೇದಿ", "ಅತಿಸಾರ"]):
             matches.append("diarrhea dehydration ORS fluid replacement")
+        # Vomiting / Nausea
+        if _has(["வாந்தி", "உல்டி", "उल्टी", "వాంతులు", "వాంతి", "ವಾಂತಿ"]):
+            matches.append("vomiting nausea management")
+        # Headache
+        if _has(["தலைவலி", "தலையிடி", "सिरदर्द", "सिर दर्द", "తలనొప్పి", "ತಲೆನೋವು"]):
+            matches.append("headache assessment and causes")
+        # Abdominal pain
+        if _has(["வயிறு வலி", "வயிற்று வலி", "வயித்துவலி", "வயித்து வலி", "पेट दर्द", "కడుపు నొప్పి", "ಹೊಟ್ಟೆ ನೋವು"]):
+            matches.append("abdominal pain management")
+        # Knee / Joint pain
+        if _has(["முழங்கால்", "முட்டி", "மூட்டு", "மூட்டுவலி", "घुटने", "घुटनों", "जोड़ों का दर्द", "మోకాలి", "కీళ్ల నొప్పి", "ಮಂಡಿ ನೋವು", "ಕೀಲು ನೋವು"]):
+            matches.append("knee pain joint disorder arthritis")
+        # Chest pain
+        if _has(["நெஞ்சு வலி", "மார்பு வலி", "மார்பு", "सीने में दर्द", "छाती में दर्द", "ఛాతీ నొప్పి", "ಎದೆ ನೋವು"]):
+            matches.append("chest pain urgent warning signs cardiovascular")
+        # Back pain
+        if _has(["முதுகு வலி", "இடுப்பு வலி", "पीठ दर्द", "कमर दर्द", "వెన్ను నొప్పి", "నడుము నొప్పి", "ಬೆನ್ನು ನೋವು"]):
+            matches.append("back pain causes management")
+        # Convulsions / Seizures
+        if _has(["வலிப்பு", "இழுப்பு", "फिट्स", "दौरा", "मिर्गी", "ఫిట్స్", "మూర్ఛ", "ಫಿಟ್ಸ್", "ಮೂರ್ಛೆ"]):
+            matches.append("convulsions general danger signs immediate referral")
+        # Skin rash / Allergy
+        if _has(["தடிப்பு", "அரிப்பு", "தட்டம்மை", "दाने", "खुजली", "खसरा", "దద్దుర్లు", "దురద", "ಗುಳ್ಳೆ", "ತುರಿಕೆ"]):
+            matches.append("skin rash measles allergy")
+        # Ear infection / Ear pain
+        if _has(["காது வலி", "காது", "சீழ்", "कान दर्द", "पीप", "చెవి నొప్పి", "చీము", "ಕಿವಿ ನೋವು", "ಕೀವು"]):
+            matches.append("ear pain acute ear infection")
+
+        if matches:
+            return " ".join(matches)
+        return Noneppend("diarrhea dehydration ORS fluid replacement")
         # Vomiting
         if any(k in t for k in ["வாந்தி", "உல்டி", "उल्टी", "వాంతులు", "వాంతి", "ವಾಂತಿ"]):
             # NOTE: Do NOT add "child" here — vomiting is not exclusively pediatric.

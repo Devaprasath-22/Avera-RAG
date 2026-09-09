@@ -431,7 +431,7 @@ class RAGPipeline:
         if _has(["மூச்சு", "இளைப்பு", "ஆஸ்துமா", "திணறல்", "सांस", "दमा", "శ్వాస", "ఆయాసం", "ಉಸಿರಾಟ"]):
             matches.append("difficulty breathing fast breathing pneumonia")
         # Diarrhea / Dehydration / Loose motion
-        if _has(["வயிற்றுப்போக்கு", "வயிற்றுப் போக்கு", "பேதி", "சீதபேதி", "லூஸ் மோஷன்", "दस्त", "पेचिश", "विरेचనాలు", "భేది", "ಭೇದಿ", "ಅತಿಸಾರ"]):
+        if _has(["வயிற்றுப்போக்கு", "வயிற்றுப் போக்கு", "பேதி", "சீதபேதி", "லூஸ் மோஷன்", "दस्त", "पेचिश", "विरेचనాలు", "భేది", "భేది", "ಅತಿಸಾರ"]):
             matches.append("diarrhea dehydration ORS fluid replacement")
         # Vomiting / Nausea
         if _has(["வாந்தி", "உல்டி", "उल्टी", "వాంతులు", "వాంతి", "ವಾಂತಿ"]):
@@ -463,29 +463,13 @@ class RAGPipeline:
 
         if matches:
             return " ".join(matches)
-        return Noneppend("diarrhea dehydration ORS fluid replacement")
-        # Vomiting
-        if any(k in t for k in ["வாந்தி", "உல்டி", "उल्टी", "వాంతులు", "వాంతి", "ವಾಂತಿ"]):
-            # NOTE: Do NOT add "child" here — vomiting is not exclusively pediatric.
-            matches.append("vomiting nausea management")
-        # Headache
-        if any(k in t for k in ["தலைவலி", "தலையிடி", "सिरदर्द", "सिर दर्द", "తలనొప్పి", "ತಲೆನೋವು"]):
-            matches.append("headache assessment and causes")
-        # Abdominal pain
-        if any(k in t for k in ["வயிறு வலி", "வயிற்று வலி", "வயித்துவலி", "पेट दर्द", "కడుపు నొప్పి", "ಹೊಟ್ಟೆ ನೋವು"]):
-            matches.append("abdominal pain management")
-        # Convulsions / Seizures
-        if any(k in t for k in ["வலிப்பு", "இழுப்பு", "फिट्स", "दौरा", "मिर्गी", "ఫిట్స్", "మూర్ఛ", "ಫಿಟ್ಸ್", "ಮೂರ್ಛೆ"]):
-            matches.append("convulsions general danger signs immediate referral")
-        # Skin rash
-        if any(k in t for k in ["தடிப்பு", "அரிப்பு", "தட்டம்மை", "दाने", "खुजली", "खसरा", "దద్దుర్లు", "దురద", "ಗುಳ್ಳೆ", "ತುರಿಕೆ"]):
-            matches.append("skin rash measles allergy")
-        # Ear infection
-        if any(k in t for k in ["காது வலி", "காது", "சீழ்", "कान दर्द", "पीप", "చెవి నొప్పి", "చీము", "ಕಿವಿ ನೋವು", "ಕೀವು"]):
-            matches.append("ear pain acute ear infection")
+        # Menstrual problems / Period pain
+        if _has(['மாதவிடாய்', 'மாதவிலக்கு', 'தீட்டு', 'पीरियड्स', 'मासिक धर्म', 'పీరియడ్స్', 'ఋతుసమస్య', 'ಋತುಚಕ್ರ']):
+            matches.append('menstrual disorder period pain dysmenorrhea')
+        # Urinary problems
+        if _has(['சிறுநீர்', 'மூத்திரம்', 'பச்சைநீர்', 'पेशाब', 'मूत्र', 'మూత్ర', 'ಮೂತ್ರ']):
+            matches.append('urinary tract infection dysuria')
 
         if matches:
-            # Return symptom keywords only — no demographic or severity suffix injected here.
-            # The LLM generation stage (via system prompt + context) will provide clinical framing.
-            return " ".join(matches)
+            return ' '.join(matches)
         return None

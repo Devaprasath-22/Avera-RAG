@@ -1,4 +1,4 @@
-# Avera RAG — Central Configuration
+﻿# Avera RAG â€” Central Configuration
 # All tunable parameters. Paths use ~ for home dir (expanded at runtime).
 
 ingestion:
@@ -20,7 +20,7 @@ models:
   reranker: "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
   llm:
-    # GGUF file — download separately via setup_jetson.sh
+    # GGUF file â€” download separately via setup_jetson.sh
     path: "~/avera_models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
     n_ctx: 8192            # context window (tokens)
     n_gpu_layers: -1       # -1 = all layers to GPU (Jetson unified memory)
@@ -34,18 +34,18 @@ models:
     max_new_tokens: 256
 
   asr:
-    model_size: "small.en"    # use "small" for multilingual
+    model_size: "small"     # multilingual: en, hi, ta, te, kn
     device: "cuda"
     compute_type: "int8"
-    language: "en"
+    language: null           # null = auto-detect per user selection
     beam_size: 5
 
   tts:
-    # AI4Bharat Indic TTS — fully offline, VITS-based
+    # AI4Bharat Indic TTS â€” fully offline, VITS-based
     # Models downloaded from HuggingFace on first run, then cached locally.
     # No internet needed after the initial download.
     provider: "ai4bharat"
-    language: "hi"                       # BCP-47: hi, ta, te, kn, ml, bn, mr, gu, pa, en…
+    language: "hi"                       # BCP-47: hi, ta, te, kn, ml, bn, mr, gu, pa, enâ€¦
     gender: "female"                     # female | male
     sample_rate: 22050
     model_cache_dir: "~/avera_models/indic_tts"  # cached model weights
@@ -56,7 +56,7 @@ models:
 api:
   host: "0.0.0.0"
   port: 8000
-  workers: 1              # single worker — models are NOT thread-safe
+  workers: 1              # single worker â€” models are NOT thread-safe
 
 logging:
   level: "INFO"

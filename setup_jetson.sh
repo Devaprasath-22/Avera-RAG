@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # =============================================================================
 # setup_jetson.sh — Jetson Orin Nano 8GB environment setup
 # Tested on JetPack 6.0 / Ubuntu 22.04 / CUDA 12.2
@@ -23,7 +23,7 @@ PIP="${VENV_DIR}/bin/pip"
 QWEN_GGUF_URL="https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
 PIPER_VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
 PIPER_CONFIG_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
-WHISPER_MODEL="small.en"  # downloaded automatically by faster-whisper
+WHISPER_MODEL="small"  # multilingual: hi, ta, te, kn, en
 # NOTE: Bhashini TTS uses an online API — no model download needed.
 # Get your API key at: https://bhashini.gov.in/ulca/user/register
 # Then set BHASHINI_API_KEY in your shell or in config.yaml.
@@ -46,7 +46,9 @@ sudo apt-get install -y \
     libopenblas-dev \
     cmake ninja-build \
     curl wget git \
-    htop nvtop  # for memory monitoring
+    htop nvtop \`  # for memory monitoring
+    espeak-ng libespeak-ng-dev \  # pyttsx3 TTS fallback
+    alsa-utils                   # aplay for audio playback fallback
 
 # ─── 3. Python virtual environment ───────────────────────────────────────────
 info "Creating Python virtual environment at ${VENV_DIR}..."
@@ -71,6 +73,13 @@ pip install -r "${SCRIPT_DIR}/requirements.txt" \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     || error "pip install failed"
 
+
+# --- bitsandbytes: aarch64 guard (Jetson) ---
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ]; then
+    info "aarch64 detected - building bitsandbytes from source for INT4 VLM quant..."
+    pip install bitsandbytes --prefer-binary || warn "bitsandbytes unavailable on aarch64 - VLM will use FP16."
+fi
 # ─── 7. Model directory ──────────────────────────────────────────────────────
 info "Creating model directory: ${MODEL_DIR}"
 mkdir -p "${MODEL_DIR}" "${PIPER_DIR}"

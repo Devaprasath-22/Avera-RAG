@@ -43,11 +43,17 @@ class Reranker:
         logger.info(f"Loading reranker '{self.model_name}' on {device}…")
         t0 = time.perf_counter()
 
-        self._model = CrossEncoder(
-            self.model_name,
-            device=device,
-            # INT8 quantization not natively in CrossEncoder; applied via torch
-        )
+        try:
+            self._model = CrossEncoder(
+                self.model_name,
+                device=device,
+                local_files_only=True,
+            )
+        except Exception:
+            self._model = CrossEncoder(
+                self.model_name,
+                device=device,
+            )
 
         # Quantize to INT8 for ~2× speed on Jetson CPU
         if device == "cpu":

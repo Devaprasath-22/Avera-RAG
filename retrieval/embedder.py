@@ -48,7 +48,10 @@ class Embedder:
         logger.info(f"Loading embedder '{self.model_name}' on {device}…")
         t0 = time.perf_counter()
 
-        self._model = SentenceTransformer(self.model_name, device=device)
+        try:
+            self._model = SentenceTransformer(self.model_name, device=device, local_files_only=True)
+        except Exception:
+            self._model = SentenceTransformer(self.model_name, device=device)
 
         # Cast to FP16 on CUDA for ~2× memory saving (33M params → ~64 MB)
         if device == "cuda":
